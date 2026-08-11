@@ -1,28 +1,26 @@
-# 🚚 Autonomous Delivery Route Optimizer Using Reinforcement Learning
+# 🗺️ AI-Based Autonomous Delivery Route Optimization Using Reinforcement Learning & Google Maps API
 
-An intelligent, adaptive autonomous delivery vehicle routing system built with **Python**, **OpenAI Gymnasium**, **PyTorch**, **NetworkX**, **Plotly**, and **Streamlit**.
+An intelligent, real-world autonomous delivery vehicle routing system built with **Deep Q-Networks (DQN)**, **Google Maps Platform APIs**, **Explainable AI (XAI)**, **PyTorch**, **PyDeck**, **Plotly**, and **Streamlit**.
 
-This system addresses the limitations of traditional fixed route-planning algorithms (such as Dijkstra or Greedy Nearest-Neighbor TSP) by training **Tabular Q-Learning** and **Deep Q-Network (DQN)** agents to learn optimal routing decisions under dynamic real-time traffic conditions, delivery package priorities, tight time window deadlines, payload capacities, and vehicle battery constraints.
+Unlike traditional route selection systems that depend solely on static shortest-distance algorithms, this system evaluates real-world route options (distance, duration, live traffic congestion, toll fees, delivery priorities) and uses **Reinforcement Learning** to select the optimal route while providing transparent natural-language reasoning explaining *why* a specific route was chosen.
 
 ---
 
 ## 🌟 Key Features
 
-1. **Custom Gymnasium Environment (`DeliveryEnv`)**:
-   - Represents complex urban road networks as graphs with warehouses, charging stations, road junctions, and customer delivery points.
-   - Simulates dynamic traffic congestion fluctuations, vehicle energy consumption (distance & payload weight dependent), battery recharging, and order priority deadlines.
-2. **Reinforcement Learning Core**:
-   - **Tabular Q-Learning**: Custom discrete state-hashing Q-table implementation with epsilon-greedy exploration.
-   - **PyTorch Deep Q-Network (DQN)**: Multi-Layer Perceptron neural network with Replay Buffer and target Q-network updates.
-3. **Classical Baseline Routing Solvers**:
-   - **Static Dijkstra's Shortest Path**: Computes paths based on static road distances.
-   - **Greedy Priority TSP**: Always targets highest-priority undelivered customer locations.
-   - **Dynamic Traffic-Aware Dijkstra**: Recalculates shortest paths using real-time edge congestion multipliers.
-4. **Interactive Streamlit Dashboard (`app.py`)**:
-   - **City Network Explorer**: Customize map grid size, customer order counts, charging station locations, and view traffic heatmaps.
-   - **Live Route Simulation Playback**: Step-by-step playback with vehicle telemetry (battery gauge, payload, order statuses, interactive map trajectory).
-   - **RL Training Studio**: Hyperparameter tuning controls, live training progress bars, and real-time reward curve charts.
-   - **Performance Benchmarking**: Side-by-side performance comparison tables, multi-bar charts, and multi-axis radar charts comparing RL agents against classical solvers.
+1. **Google Maps Platform API Integration (`google_maps/api_client.py`)**:
+   - Fetches real-world route choices, travel times, live traffic conditions, distances, and toll info via Google Maps Directions & Distance Matrix APIs.
+   - Includes an out-of-the-box fallback generator for pre-configured real-world cities (New York, San Francisco, London, Bengaluru) so the application works seamlessly without an API key.
+2. **Deep Q-Network (DQN) Routing Environment (`rl_core/route_env.py`)**:
+   - `RealWorldRouteEnv(gymnasium.Env)` models multi-objective trade-offs between travel duration, distance, traffic bottlenecks, toll costs, and delivery urgency priorities.
+3. **Explainable AI (XAI) Reasoning Engine (`rl_core/explainability.py`)**:
+   - Calculates sub-reward component breakdowns and produces natural-language explanations (e.g. *"Route A was selected because it avoids 18 mins of heavy traffic congestion and saves $4.50 in tolls, despite being 1.4 km longer than Route B"*).
+4. **Interactive Streamlit Web Dashboard (`app.py`)**:
+   - Real-world map visualizer (PyDeck / Plotly).
+   - Candidate route comparison matrix.
+   - XAI transparent route reasoning box.
+   - Baseline benchmark comparison (DQN vs Shortest Distance vs Fastest Duration vs Lowest Toll Cost).
+   - Interactive DQN model training studio.
 
 ---
 
@@ -30,60 +28,38 @@ This system addresses the limitations of traditional fixed route-planning algori
 
 ```
 c:\Files\Rein_learn/
-├── app.py                             # Streamlit interactive web dashboard
-├── requirements.txt                   # Dependency requirements
-├── README.md                          # Documentation & project guide
+├── app.py                             # Streamlit interactive web application
+├── requirements.txt                   # Dependency list
+├── README.md                          # Documentation
+├── google_maps/
+│   ├── __init__.py
+│   └── api_client.py                  # Google Maps API client & fallback router
 ├── rl_core/
 │   ├── __init__.py
-│   ├── env.py                         # Gymnasium DeliveryEnv custom environment
-│   ├── q_learning.py                  # Tabular Q-Learning agent
-│   ├── dqn_agent.py                   # PyTorch Deep Q-Network (DQN) agent
-│   └── trainer.py                     # Training routines & evaluation runners
+│   ├── route_env.py                   # RealWorldRouteEnv Gymnasium environment
+│   ├── dqn_agent.py                   # PyTorch Deep Q-Network agent
+│   ├── explainability.py              # XAIRouteExplainer natural language engine
+│   └── trainer.py                     # Multi-scenario DQN training & evaluation
 ├── baselines/
 │   ├── __init__.py
-│   └── solvers.py                     # Classical Dijkstra, Greedy TSP & Dynamic solvers
+│   └── solvers.py                     # Classical route selection solvers
 └── utils/
     ├── __init__.py
-    ├── map_generator.py               # Synthetic city graph & delivery order scenario generator
-    ├── metrics.py                     # Metrics computation & benchmark aggregator
-    └── visualization.py               # Plotly interactive graphs, heatmaps & radar charts
+    ├── geo_visualization.py           # PyDeck & Plotly geographic route maps
+    └── metrics.py                     # Benchmark aggregator
 ```
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Running the Application
 
 ### 1. Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Launch the Streamlit Dashboard
+### 2. Launch Streamlit
 ```bash
-streamlit run app.py
+python -m streamlit run app.py
 ```
-Open your browser at `http://localhost:8501`.
-
----
-
-## 📊 Performance Comparison Summary
-
-| Algorithm | Delivery Completion Rate (%) | Dynamic Traffic Adaptability | Proactive Battery Management | Priority Handling |
-| :--- | :---: | :---: | :---: | :---: |
-| **Deep Q-Network (DQN)** | **High (~90-100%)** | ✅ Dynamic Avoidance | ✅ Learned Recharge Policy | ✅ Balanced |
-| **Tabular Q-Learning** | **High (~85-95%)** | ✅ Adaptive | ✅ Learned Recharge Policy | ✅ Balanced |
-| **Static Dijkstra** | Medium (~60-75%) | ❌ Blind to Congestion | ⚠️ Reactive | ❌ Nearest Only |
-| **Greedy Priority TSP** | Medium (~65-80%) | ❌ High Backtrack Cost | ⚠️ Reactive | ✅ Strict Priority |
-| **Dynamic Dijkstra** | High (~80-90%) | ✅ Recalculated | ⚠️ Reactive | ⚠️ Heuristic |
-
----
-
-## 🔬 Reward Function Formulation
-
-$$R = R_{\text{delivery}} - P_{\text{travel}} - P_{\text{energy}} - P_{\text{deadline}} - P_{\text{invalid}}$$
-
-- **Delivery Reward ($R_{\text{delivery}}$)**: $+40 \times \text{priority} + \text{timeliness bonus}$
-- **Travel Cost ($P_{\text{travel}}$)**: $- \text{distance} \times \text{traffic\_factor} \times 0.5$
-- **Energy Cost ($P_{\text{energy}}$)**: $- d \times 0.4 \times \left(1 + \frac{\text{payload}}{\text{capacity}}\right)$
-- **Deadline Penalty ($P_{\text{deadline}}$)**: $- 15 \times \text{priority}$ for expired pending orders.
-- **Battery Depleted / Invalid Action Penalty**: $-50$ / $-8$.
+Open `http://localhost:8501` in your browser.

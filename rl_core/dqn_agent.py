@@ -4,11 +4,11 @@ import torch.optim as optim
 import numpy as np
 import random
 from collections import deque
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict, Any, List
 
 class QNetwork(nn.Module):
     """
-    Multi-Layer Perceptron Q-Network for Deep Q-Learning.
+    Multi-Layer Perceptron Q-Network for Deep Q-Learning Route Selection.
     """
     def __init__(self, obs_dim: int, action_dim: int, hidden_dim: int = 128):
         super(QNetwork, self).__init__()
@@ -28,7 +28,7 @@ class ReplayBuffer:
     """
     Experience Replay Memory Buffer for Decorrelated Batch Sampling.
     """
-    def __init__(self, capacity: int = 20000):
+    def __init__(self, capacity: int = 10000):
         self.buffer = deque(maxlen=capacity)
 
     def push(self, state: np.ndarray, action: int, reward: float, next_state: np.ndarray, done: bool):
@@ -50,19 +50,19 @@ class ReplayBuffer:
 
 class DQNAgent:
     """
-    Deep Q-Network (DQN) Agent with Target Q-Network and Replay Buffer.
+    Deep Q-Network (DQN) Agent for Autonomous Route Selection.
     """
     def __init__(
         self,
         obs_dim: int,
         action_dim: int,
         lr: float = 1e-3,
-        gamma: float = 0.98,
+        gamma: float = 0.95,
         epsilon: float = 1.0,
-        epsilon_decay: float = 0.995,
+        epsilon_decay: float = 0.99,
         epsilon_min: float = 0.05,
-        buffer_capacity: int = 20000,
-        batch_size: int = 64,
+        buffer_capacity: int = 10000,
+        batch_size: int = 32,
         target_update_freq: int = 10
     ):
         self.obs_dim = obs_dim
@@ -77,14 +77,13 @@ class DQNAgent:
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        # Policy & Target Networks
         self.policy_net = QNetwork(obs_dim, action_dim).to(self.device)
         self.target_net = QNetwork(obs_dim, action_dim).to(self.device)
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()
 
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=lr)
-        self.loss_fn = nn.SmoothL1Loss()  # Huber Loss
+        self.loss_fn = nn.SmoothL1Loss()
         self.memory = ReplayBuffer(capacity=buffer_capacity)
 
     def select_action(self, obs: np.ndarray, eval_mode: bool = False) -> int:
@@ -95,6 +94,12 @@ class DQNAgent:
         with torch.no_grad():
             q_values = self.policy_net(state_t)
         return int(torch.argmax(q_values, dim=1).item())
+
+    def get_q_values(self, obs: np.ndarray) -> np.ndarray:
+        state_t = torch.FloatTensor(obs).unsqueeze(0).to(self.device)
+        with torch.no_grad():
+            q_values = self.policy_net(state_t)
+        return q_values.cpu().numpy()[0]
 
     def update(self) -> float:
         if len(self.memory) < self.batch_size:
@@ -108,10 +113,8 @@ class DQNAgent:
         next_states_t = torch.FloatTensor(next_states).to(self.device)
         dones_t = torch.FloatTensor(dones).unsqueeze(1).to(self.device)
 
-        # Current Q-values
         q_eval = self.policy_net(states_t).gather(1, actions_t)
 
-        # Next Q-values from Target Net
         with torch.no_grad():
             q_next = self.target_net(next_states_t).max(1)[0].unsqueeze(1)
             q_target = rewards_t + (1.0 - dones_t) * self.gamma * q_next
