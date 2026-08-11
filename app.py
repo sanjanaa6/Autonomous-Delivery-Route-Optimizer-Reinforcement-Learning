@@ -72,6 +72,15 @@ st.markdown("""
         margin-bottom: 8px;
     }
     
+    .location-card {
+        background: rgba(30, 41, 59, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        padding: 12px 16px;
+        margin-top: 10px;
+        margin-bottom: 15px;
+    }
+
     .xai-card {
         background: rgba(30, 41, 59, 0.7);
         border: 1px solid rgba(56, 189, 248, 0.3);
@@ -170,8 +179,8 @@ if st.sidebar.button("Apply Preset Location", use_container_width=True):
 
 st.sidebar.markdown("---")
 st.sidebar.info(
-    "💡 **Real OpenStreetMap & Google Maps Integration**: Live Geocoding via Nominatim & live OpenStreetMap OSRM driving routes. "
-    "If Google Maps API Key is provided, queries live Google Maps API directly."
+    "💡 **Precise OpenStreetMap & Google Maps Integration**: Uses Geopy Nominatim & OpenStreetMap OSRM driving services for high-accuracy route bounds and street paths. "
+    "Queries live Google Maps API directly when API Key is provided."
 )
 
 
@@ -179,7 +188,7 @@ st.sidebar.info(
 # MAIN PAGE ROUTE DISCOVERY & INPUTS
 # ==========================================
 st.title("🚚 AI Delivery Route Optimizer & Driver Assistant")
-st.markdown("Enter Source & Destination locations below to discover real candidate routes and obtain the **AI Recommended Route for Delivery Executive**.")
+st.markdown("Enter Source & Destination locations below to discover accurate real candidate routes and obtain the **AI Recommended Route for Delivery Executive**.")
 
 st.markdown("---")
 
@@ -234,18 +243,28 @@ chosen_route = routes[selected_idx] if selected_idx < len(routes) else routes[0]
 xai_info = eval_res["explanation"]
 breakdown = eval_res["all_breakdowns"].get(selected_idx, {})
 
+# Display Location Resolution Info
+orig_c = scen.get("origin_coords", (40.7580, -73.9855))
+dest_c = scen.get("dest_coords", (40.7075, -74.0089))
+
+st.markdown(f"""
+<div class="location-card">
+    <b>📍 Resolved Geocoded Locations:</b><br>
+    🟢 <b>Origin:</b> {scen.get('origin_name')} <i>({orig_c[0]:.4f}, {orig_c[1]:.4f})</i><br>
+    🔴 <b>Destination:</b> {scen.get('dest_name')} <i>({dest_c[0]:.4f}, {dest_c[1]:.4f})</i>
+</div>
+""", unsafe_allow_html=True)
+
 
 # ==========================================
 # HERO DRIVER RECOMMENDATION BANNER
 # ==========================================
-st.markdown("---")
-
 st.markdown(f"""
 <div class="driver-recommend-card">
     <div class="recommend-badge">RECOMMENDED ROUTE FOR DELIVERY EXECUTIVE</div>
     <div class="recommend-title">🚚 Adopt {chosen_route['name']}</div>
     <p style="font-size:1.1rem; color:#CBD5E1;">
-        Optimal real-world driving corridor for <b>{st.session_state.source_input}</b> ➡️ <b>{st.session_state.dest_input}</b>.
+        Optimal real-world driving corridor for <b>{scen.get('origin_name')}</b> ➡️ <b>{scen.get('dest_name')}</b>.
     </p>
 </div>
 """, unsafe_allow_html=True)
@@ -281,14 +300,14 @@ with tab1:
     col_map_box, col_xai_box = st.columns([1.6, 1])
 
     with col_map_box:
-        st.subheader("🗺️ Real Interactive Street Map (OpenStreetMap / Leaflet)")
+        st.subheader("🗺️ Real Interactive Street Map (Auto-Zoomed Bounding Box)")
         
-        map_engine = st.radio("Select Map Engine:", ["Real Leaflet / OpenStreetMap (Folium)", "Plotly Dark Matter Map", "3D PyDeck Map"], horizontal=True)
+        map_engine = st.radio("Select Map View Mode:", ["Real Leaflet / OpenStreetMap (Folium)", "Plotly Auto-Zoom Map", "3D PyDeck Map"], horizontal=True)
         
         if map_engine == "Real Leaflet / OpenStreetMap (Folium)" and HAS_FOLIUM and HAS_ST_FOLIUM:
             folium_m = render_folium_route_map(scen, selected_route_idx=selected_idx)
             if folium_m:
-                st_folium(folium_m, width=850, height=480, returned_objects=[])
+                st_folium(folium_m, width=850, height=520, returned_objects=[])
         elif map_engine == "3D PyDeck Map":
             deck = render_pydeck_route_map(scen, selected_route_idx=selected_idx)
             st.pydeck_chart(deck)
