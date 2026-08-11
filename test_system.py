@@ -45,7 +45,7 @@ def run_tests():
     assert 0 <= a3 < len(env.routes)
     print("[OK] Classical Route Solvers OK")
 
-    print("\nALL SYSTEM TESTS PASSED SUCCESSFULLY!")
+    print("\nALL ENTERPRISE SYSTEM TESTS PASSED SUCCESSFULLY!")
 
 if __name__ == "__main__":
     run_tests()

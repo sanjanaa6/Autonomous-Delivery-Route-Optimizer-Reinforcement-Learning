@@ -13,9 +13,8 @@ except ImportError:
 
 def render_folium_route_map(scenario: Dict[str, Any], selected_route_idx: int = 0) -> Optional[Any]:
     """
-    Renders a real interactive Leaflet/OpenStreetMap Folium map with street tiles,
-    precise auto-zoomed bounding boxes (`fit_bounds`), origin/destination pins,
-    and route polylines.
+    Renders a clean, professional Leaflet/OpenStreetMap Folium map with auto-zoomed bounding boxes,
+    clean markers, and distinct route polylines.
     """
     if not HAS_FOLIUM:
         return None
@@ -24,7 +23,6 @@ def render_folium_route_map(scenario: Dict[str, Any], selected_route_idx: int = 
     dest_coords = scenario.get("dest_coords", (40.7075, -74.0089))
     routes = scenario.get("routes", [])
 
-    # Collect all coordinate points across all routes to calculate tight map bounds
     all_lats = [orig_coords[0], dest_coords[0]]
     all_lngs = [orig_coords[1], dest_coords[1]]
 
@@ -39,7 +37,6 @@ def render_folium_route_map(scenario: Dict[str, Any], selected_route_idx: int = 
     center_lat = (min_lat + max_lat) / 2.0
     center_lng = (min_lng + max_lng) / 2.0
 
-    # Initialize Folium Map
     m = folium.Map(
         location=[center_lat, center_lng],
         zoom_start=13,
@@ -47,46 +44,45 @@ def render_folium_route_map(scenario: Dict[str, Any], selected_route_idx: int = 
         control_scale=True
     )
 
-    # Fit map bounds tightly around all route points with padding
     bounds = [[min_lat - 0.005, min_lng - 0.005], [max_lat + 0.005, max_lng + 0.005]]
     m.fit_bounds(bounds, padding=(30, 30))
 
-    # Add Start Green Marker
+    # Clean Origin Marker
     folium.Marker(
         location=[orig_coords[0], orig_coords[1]],
-        popup=f"🟢 <b>DEPARTURE:</b> {scenario.get('origin_name', 'Departure')}",
-        tooltip="Origin / Departure Point",
+        popup=f"<b>ORIGIN:</b> {scenario.get('origin_name', 'Departure Point')}",
+        tooltip="Departure Origin Point",
         icon=folium.Icon(color="green", icon="play", prefix="fa")
     ).add_to(m)
 
-    # Add End Red Marker
+    # Clean Destination Marker
     folium.Marker(
         location=[dest_coords[0], dest_coords[1]],
-        popup=f"🔴 <b>DESTINATION:</b> {scenario.get('dest_name', 'Delivery Target')}",
-        tooltip="Destination / Delivery Target",
+        popup=f"<b>DESTINATION:</b> {scenario.get('dest_name', 'Delivery Target')}",
+        tooltip="Delivery Destination Point",
         icon=folium.Icon(color="red", icon="flag", prefix="fa")
     ).add_to(m)
 
-    # Add Candidate Route Polylines
+    # Candidate Route Polylines
     for idx, r in enumerate(routes):
         is_selected = (idx == selected_route_idx)
         coords = r["path_coords"]
 
         if is_selected:
-            color = "#10B981"  # Emerald Green for AI Adopted Route
+            color = "#10B981"  # Emerald Green for Selected Route
             weight = 7
             opacity = 0.95
-            popup_txt = f"⭐ <b>AI ADOPTED ROUTE: {r['name']}</b><br>Distance: {r['distance_km']} km<br>Travel Time: {r['duration_min']} mins<br>Traffic Congestion: {r['traffic_factor']}x<br>Tolls: ${r['toll_cost']:.2f}"
+            popup_txt = f"<b>OPTIMAL ROUTE: {r['name']}</b><br>Distance: {r['distance_km']} km<br>Travel Time: {r['duration_min']} min<br>Traffic Index: {r['traffic_factor']}x<br>Tolls: ${r['toll_cost']:.2f}"
         elif idx == 1:
-            color = "#F59E0B"  # Amber for Route B
+            color = "#F59E0B"  # Amber for Route 2
             weight = 4.5
-            opacity = 0.8
-            popup_txt = f"<b>{r['name']}</b><br>Distance: {r['distance_km']} km<br>Travel Time: {r['duration_min']} mins<br>Traffic Congestion: {r['traffic_factor']}x"
+            opacity = 0.80
+            popup_txt = f"<b>{r['name']}</b><br>Distance: {r['distance_km']} km<br>Travel Time: {r['duration_min']} min<br>Traffic Index: {r['traffic_factor']}x"
         else:
-            color = "#3B82F6"  # Blue for Route C
+            color = "#3B82F6"  # Blue for Route 3
             weight = 4.5
-            opacity = 0.8
-            popup_txt = f"<b>{r['name']}</b><br>Distance: {r['distance_km']} km<br>Travel Time: {r['duration_min']} mins<br>Traffic Congestion: {r['traffic_factor']}x"
+            opacity = 0.80
+            popup_txt = f"<b>{r['name']}</b><br>Distance: {r['distance_km']} km<br>Travel Time: {r['duration_min']} min<br>Traffic Index: {r['traffic_factor']}x"
 
         folium.PolyLine(
             locations=coords,
@@ -126,7 +122,6 @@ def render_plotly_geo_map(scenario: Dict[str, Any], selected_route_idx: int = 0)
     lng_span = max(0.005, max_lng - min_lng)
     max_span = max(lat_span, lng_span)
 
-    # Dynamic zoom level calculation
     zoom = max(3.0, min(15.5, round(12.5 - np.log2(max_span / 0.05), 1)))
 
     fig = go.Figure()
@@ -139,7 +134,7 @@ def render_plotly_geo_map(scenario: Dict[str, Any], selected_route_idx: int = 0)
         if is_selected:
             color = '#10B981'
             width = 6
-            name_str = f"⭐ {r['name']} [ADOPTED]"
+            name_str = f"{r['name']} [OPTIMAL ROUTE]"
         elif idx == 1:
             color = '#F59E0B'
             width = 3.5
@@ -156,7 +151,7 @@ def render_plotly_geo_map(scenario: Dict[str, Any], selected_route_idx: int = 0)
             line=dict(width=width, color=color),
             name=name_str,
             hoverinfo='text',
-            text=f"{r['name']}<br>Dist: {r['distance_km']}km | Time: {r['duration_min']}min | Traffic: {r['traffic_factor']}x | Toll: ${r['toll_cost']:.2f}"
+            text=f"{r['name']}<br>Distance: {r['distance_km']} km | Time: {r['duration_min']} min | Traffic: {r['traffic_factor']}x | Toll: ${r['toll_cost']:.2f}"
         ))
 
     fig.add_trace(go.Scattermap(
@@ -164,7 +159,7 @@ def render_plotly_geo_map(scenario: Dict[str, Any], selected_route_idx: int = 0)
         lat=[orig_coords[0], dest_coords[0]],
         lon=[orig_coords[1], dest_coords[1]],
         marker=dict(size=[16, 16], color=['#10B981', '#EF4444']),
-        text=["🟢 ORIGIN", "🔴 DESTINATION"],
+        text=["ORIGIN", "DESTINATION"],
         textposition="top center",
         name="Endpoints"
     ))
@@ -186,9 +181,6 @@ def render_plotly_geo_map(scenario: Dict[str, Any], selected_route_idx: int = 0)
 
 
 def render_pydeck_route_map(scenario: Dict[str, Any], selected_route_idx: int = 0) -> pdk.Deck:
-    """
-    PyDeck 3D map with dynamic zoom level.
-    """
     orig_coords = scenario.get("origin_coords", (40.7580, -73.9855))
     dest_coords = scenario.get("dest_coords", (40.7075, -74.0089))
     routes = scenario.get("routes", [])
