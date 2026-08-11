@@ -4,16 +4,94 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List, Any, Optional
 
+try:
+    import folium
+    HAS_FOLIUM = True
+except ImportError:
+    HAS_FOLIUM = False
+
+
+def render_folium_route_map(scenario: Dict[str, Any], selected_route_idx: int = 0) -> Optional[Any]:
+    """
+    Renders a real interactive OpenStreetMap / Leaflet Folium map with street tiles,
+    zoom/pan controls, real markers, and route polylines.
+    """
+    if not HAS_FOLIUM:
+        return None
+
+    orig_coords = scenario.get("origin_coords", (40.7580, -73.9855))
+    dest_coords = scenario.get("dest_coords", (40.7075, -74.0089))
+    routes = scenario.get("routes", [])
+
+    center_lat = (orig_coords[0] + dest_coords[0]) / 2.0
+    center_lng = (orig_coords[1] + dest_coords[1]) / 2.0
+
+    # Initialize Folium OpenStreetMap Tile Map
+    m = folium.Map(
+        location=[center_lat, center_lng],
+        zoom_start=12,
+        tiles="OpenStreetMap",
+        control_scale=True
+    )
+
+    # Add Origin Green Pin
+    folium.Marker(
+        location=[orig_coords[0], orig_coords[1]],
+        popup=f"🟢 ORIGIN: {scenario.get('origin_name', 'Departure')}",
+        tooltip="Origin / Departure Point",
+        icon=folium.Icon(color="green", icon="play", prefix="fa")
+    ).add_to(m)
+
+    # Add Destination Red Pin
+    folium.Marker(
+        location=[dest_coords[0], dest_coords[1]],
+        popup=f"🔴 DESTINATION: {scenario.get('dest_name', 'Delivery Target')}",
+        tooltip="Destination / Delivery Point",
+        icon=folium.Icon(color="red", icon="flag", prefix="fa")
+    ).add_to(m)
+
+    # Add Candidate Route Polylines
+    for idx, r in enumerate(routes):
+        is_selected = (idx == selected_route_idx)
+        coords = r["path_coords"]
+
+        if is_selected:
+            color = "#10B981"  # Emerald Green for AI Adopted Route
+            weight = 7
+            opacity = 0.95
+            popup_txt = f"⭐ <b>AI ADOPTED ROUTE: {r['name']}</b><br>Distance: {r['distance_km']} km<br>Travel Time: {r['duration_min']} mins<br>Traffic: {r['traffic_factor']}x<br>Tolls: ${r['toll_cost']:.2f}"
+        elif idx == 1:
+            color = "#F59E0B"  # Amber for Route B
+            weight = 4
+            opacity = 0.75
+            popup_txt = f"<b>{r['name']}</b><br>Distance: {r['distance_km']} km<br>Travel Time: {r['duration_min']} mins"
+        else:
+            color = "#3B82F6"  # Blue for Route C
+            weight = 4
+            opacity = 0.75
+            popup_txt = f"<b>{r['name']}</b><br>Distance: {r['distance_km']} km<br>Travel Time: {r['duration_min']} mins"
+
+        folium.PolyLine(
+            locations=coords,
+            color=color,
+            weight=weight,
+            opacity=opacity,
+            popup=folium.Popup(popup_txt, max_width=300),
+            tooltip=r["name"]
+        ).add_to(m)
+
+    return m
+
+
 def render_pydeck_route_map(scenario: Dict[str, Any], selected_route_idx: int = 0) -> pdk.Deck:
     """
-    Renders an interactive 3D geographic PyDeck map showing origin/destination pins
-    and candidate route polylines with traffic color highlights.
+    Renders an interactive 3D PyDeck map showing origin/destination pins
+    and candidate route polylines.
     """
     orig_coords = scenario.get("origin_coords", (40.7580, -73.9855))
     dest_coords = scenario.get("dest_coords", (40.7075, -74.0089))
     routes = scenario.get("routes", [])
 
-    # Center view between origin and destination
     center_lat = (orig_coords[0] + dest_coords[0]) / 2.0
     center_lng = (orig_coords[1] + dest_coords[1]) / 2.0
 
@@ -27,10 +105,9 @@ def render_pydeck_route_map(scenario: Dict[str, Any], selected_route_idx: int = 
 
     layers = []
 
-    # Pin Layer (Origin & Destination)
     pins_data = [
-        {"name": f"Origin: {scenario.get('origin_name', 'Start')}", "coordinates": [orig_coords[1], orig_coords[0]], "color": [16, 185, 129, 255], "radius": 150},
-        {"name": f"Destination: {scenario.get('dest_name', 'End')}", "coordinates": [dest_coords[1], dest_coords[0]], "color": [239, 68, 68, 255], "radius": 150}
+        {"name": f"Origin: {scenario.get('origin_name', 'Start')}", "coordinates": [orig_coords[1], orig_coords[0]], "color": [16, 185, 129, 255], "radius": 180},
+        {"name": f"Destination: {scenario.get('dest_name', 'End')}", "coordinates": [dest_coords[1], dest_coords[0]], "color": [239, 68, 68, 255], "radius": 180}
     ]
 
     pin_layer = pdk.Layer(
@@ -43,20 +120,19 @@ def render_pydeck_route_map(scenario: Dict[str, Any], selected_route_idx: int = 
     )
     layers.append(pin_layer)
 
-    # Path Layers for candidate routes
     path_data = []
     for idx, r in enumerate(routes):
         is_selected = (idx == selected_route_idx)
         path = [[coords[1], coords[0]] for coords in r["path_coords"]]
         
         if is_selected:
-            color = [16, 185, 129, 255]  # Emerald Green for RL Chosen Route
+            color = [16, 185, 129, 255]
             width = 6
         elif idx == 1:
-            color = [245, 158, 11, 220]  # Amber for Route B
+            color = [245, 158, 11, 220]
             width = 3.5
         else:
-            color = [59, 130, 246, 220]  # Blue for Route C
+            color = [59, 130, 246, 220]
             width = 3.5
 
         path_data.append({
@@ -96,7 +172,6 @@ def render_plotly_geo_map(scenario: Dict[str, Any], selected_route_idx: int = 0)
 
     fig = go.Figure()
 
-    # Draw Route Polylines
     for idx, r in enumerate(routes):
         is_selected = (idx == selected_route_idx)
         lats = [c[0] for c in r["path_coords"]]
@@ -105,7 +180,7 @@ def render_plotly_geo_map(scenario: Dict[str, Any], selected_route_idx: int = 0)
         if is_selected:
             color = '#10B981'
             width = 5
-            name_str = f"⭐ {r['name']} [AI SELECTED]"
+            name_str = f"⭐ {r['name']} [ADOPTED ROUTE]"
         elif idx == 1:
             color = '#F59E0B'
             width = 3
@@ -125,7 +200,6 @@ def render_plotly_geo_map(scenario: Dict[str, Any], selected_route_idx: int = 0)
             text=f"{r['name']}<br>Dist: {r['distance_km']}km | Time: {r['duration_min']}min | Traffic: {r['traffic_factor']}x | Toll: ${r['toll_cost']:.2f}"
         ))
 
-    # Origin & Destination Markers
     fig.add_trace(go.Scattermap(
         mode="markers+text",
         lat=[orig_coords[0], dest_coords[0]],
@@ -156,9 +230,6 @@ def render_plotly_geo_map(scenario: Dict[str, Any], selected_route_idx: int = 0)
 
 
 def plot_subreward_breakdown(breakdown_dict: Dict[str, float], title: str = "Reward Factor Contribution") -> go.Figure:
-    """
-    Renders horizontal waterfall / bar chart showing reward component score contributions.
-    """
     categories = ["Base Score", "Time Penalty", "Distance Penalty", "Traffic Penalty", "Toll Penalty", "Budget Penalty", "TOTAL REWARD"]
     values = [
         breakdown_dict.get("base_score", 100.0),

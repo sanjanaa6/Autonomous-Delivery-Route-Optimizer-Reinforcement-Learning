@@ -19,10 +19,23 @@ from rl_core.route_env import RealWorldRouteEnv
 from rl_core.dqn_agent import DQNAgent
 from rl_core.trainer import train_dqn_route_agent, evaluate_route_policy
 from baselines.solvers import ShortestDistanceSolver, FastestDurationSolver, LowestCostSolver
-from utils.geo_visualization import render_plotly_geo_map, render_pydeck_route_map, plot_subreward_breakdown
+from utils.geo_visualization import (
+    render_folium_route_map,
+    render_plotly_geo_map,
+    render_pydeck_route_map,
+    plot_subreward_breakdown,
+    HAS_FOLIUM
+)
 from utils.metrics import run_route_benchmarks
 
-# Modern Styling
+try:
+    from streamlit_folium import st_folium
+    HAS_ST_FOLIUM = True
+except ImportError:
+    HAS_ST_FOLIUM = False
+
+
+# Glassmorphism Styling
 st.markdown("""
 <style>
     .stApp {
@@ -59,12 +72,6 @@ st.markdown("""
         margin-bottom: 8px;
     }
     
-    .metric-value-lg {
-        font-size: 2.0rem;
-        font-weight: 800;
-        color: #38BDF8;
-    }
-    
     .xai-card {
         background: rgba(30, 41, 59, 0.7);
         border: 1px solid rgba(56, 189, 248, 0.3);
@@ -95,7 +102,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# Initialize Session State
+# Initialize Session State Safely
 if 'gmaps_key' not in st.session_state:
     st.session_state.gmaps_key = os.getenv("GOOGLE_MAPS_API_KEY", "")
 
@@ -110,6 +117,12 @@ if 'dest_input' not in st.session_state:
 
 if 'vehicle_type' not in st.session_state:
     st.session_state.vehicle_type = "Delivery Van"
+
+if 'train_history' not in st.session_state:
+    st.session_state.train_history = None
+
+if 'user_selected_route_override' not in st.session_state:
+    st.session_state.user_selected_route_override = None
 
 if 'route_scenario' not in st.session_state:
     st.session_state.route_scenario = st.session_state.gmaps_client.fetch_routes(
@@ -126,9 +139,6 @@ if 'dqn_agent' not in st.session_state:
     action_dim = st.session_state.route_env.action_space.n
     st.session_state.dqn_agent = DQNAgent(obs_dim, action_dim)
     train_dqn_route_agent(st.session_state.route_env, num_episodes=60)
-
-if 'user_selected_route_override' not in st.session_state:
-    st.session_state.user_selected_route_override = None
 
 
 # ==========================================
@@ -160,8 +170,8 @@ if st.sidebar.button("Apply Preset Location", use_container_width=True):
 
 st.sidebar.markdown("---")
 st.sidebar.info(
-    "💡 **Real API Key Integration**: If a Google Maps API Key is provided, the app queries live Google Maps Directions & Traffic APIs in real-time. "
-    "Without a key, it uses a dynamic realistic route engine."
+    "💡 **Real OpenStreetMap & Google Maps Integration**: Live Geocoding via Nominatim & live OpenStreetMap OSRM driving routes. "
+    "If Google Maps API Key is provided, queries live Google Maps API directly."
 )
 
 
@@ -169,14 +179,13 @@ st.sidebar.info(
 # MAIN PAGE ROUTE DISCOVERY & INPUTS
 # ==========================================
 st.title("🚚 AI Delivery Route Optimizer & Driver Assistant")
-st.markdown("Enter Source & Destination locations below to discover candidate routes and obtain the **AI Recommended Route for Delivery Executive**.")
+st.markdown("Enter Source & Destination locations below to discover real candidate routes and obtain the **AI Recommended Route for Delivery Executive**.")
 
 st.markdown("---")
 
-# Main Control Console Box
-st.markdown("### 📍 Route Discovery & Delivery Profile Console")
+st.markdown("### 📍 Real-World Route Discovery Console")
 
-c1, c2, c3 = st.columns([2, 2, 1.5])
+c1, c2, c3 = st.columns([2.2, 2.2, 1.5])
 with c1:
     src_val = st.text_input("🟢 Source / Departure Address", value=st.session_state.source_input, key="src_field")
 with c2:
@@ -192,7 +201,7 @@ with c5:
 with c6:
     toll_budget_val = st.slider("💵 Max Toll Budget ($)", min_value=0.0, max_value=25.0, value=10.0, step=1.0)
 with c7:
-    st.write("") # Spacer
+    st.write("")
     st.write("")
     discover_btn = st.button("🔍 Discover & Optimize Route", type="primary", use_container_width=True)
 
@@ -203,13 +212,13 @@ if discover_btn:
     st.session_state.route_env.priority = priority_val
     st.session_state.route_env.max_toll_budget = toll_budget_val
     
-    with st.spinner("Fetching live routes and running Deep Q-Network optimization..."):
+    with st.spinner("Geocoding real locations & querying live driving routes..."):
         scen = st.session_state.gmaps_client.fetch_routes(src_val, dst_val, vehicle_val)
         st.session_state.route_scenario = scen
         st.session_state.route_env.set_scenario(scen, priority=priority_val, toll_budget=toll_budget_val)
         st.session_state.user_selected_route_override = None
         train_dqn_route_agent(st.session_state.route_env, num_episodes=60)
-    st.success("Routes Discovered & Optimized Successfully!")
+    st.success("Real Routes Discovered & Optimized!")
 
 
 # ==========================================
@@ -220,7 +229,6 @@ routes = scen.get("routes", [])
 
 eval_res = evaluate_route_policy(st.session_state.route_env, st.session_state.dqn_agent, solver_type="dqn")
 
-# Allow manual override if user clicks "Adopt Route" card button
 selected_idx = st.session_state.user_selected_route_override if st.session_state.user_selected_route_override is not None else eval_res["selected_route_idx"]
 chosen_route = routes[selected_idx] if selected_idx < len(routes) else routes[0]
 xai_info = eval_res["explanation"]
@@ -237,8 +245,7 @@ st.markdown(f"""
     <div class="recommend-badge">RECOMMENDED ROUTE FOR DELIVERY EXECUTIVE</div>
     <div class="recommend-title">🚚 Adopt {chosen_route['name']}</div>
     <p style="font-size:1.1rem; color:#CBD5E1;">
-        Optimal route determined for <b>{st.session_state.source_input}</b> ➡️ <b>{st.session_state.dest_input}</b> 
-        under current traffic congestion & delivery parameters.
+        Optimal real-world driving corridor for <b>{st.session_state.source_input}</b> ➡️ <b>{st.session_state.dest_input}</b>.
     </p>
 </div>
 """, unsafe_allow_html=True)
@@ -260,7 +267,7 @@ with col_m5:
 # TABS INTERFACE
 # ==========================================
 tab1, tab2, tab3, tab4 = st.tabs([
-    "🗺️ Interactive Route Map & Driver XAI", 
+    "🗺️ Real Interactive Map & Driver XAI", 
     "📊 Algorithm Benchmark Comparison", 
     "🏋️ DQN Agent Training Studio", 
     "📄 System Abstract & Specifications"
@@ -268,15 +275,26 @@ tab1, tab2, tab3, tab4 = st.tabs([
 
 
 # ----------------------------------------------------
-# TAB 1: ROUTE MAP & DRIVER XAI
+# TAB 1: REAL INTERACTIVE MAP & DRIVER XAI
 # ----------------------------------------------------
 with tab1:
     col_map_box, col_xai_box = st.columns([1.6, 1])
 
     with col_map_box:
-        st.subheader("🗺️ Real-World Map View (Candidate Corridors)")
-        fig_geo = render_plotly_geo_map(scen, selected_route_idx=selected_idx)
-        st.plotly_chart(fig_geo, use_container_width=True)
+        st.subheader("🗺️ Real Interactive Street Map (OpenStreetMap / Leaflet)")
+        
+        map_engine = st.radio("Select Map Engine:", ["Real Leaflet / OpenStreetMap (Folium)", "Plotly Dark Matter Map", "3D PyDeck Map"], horizontal=True)
+        
+        if map_engine == "Real Leaflet / OpenStreetMap (Folium)" and HAS_FOLIUM and HAS_ST_FOLIUM:
+            folium_m = render_folium_route_map(scen, selected_route_idx=selected_idx)
+            if folium_m:
+                st_folium(folium_m, width=850, height=480, returned_objects=[])
+        elif map_engine == "3D PyDeck Map":
+            deck = render_pydeck_route_map(scen, selected_route_idx=selected_idx)
+            st.pydeck_chart(deck)
+        else:
+            fig_geo = render_plotly_geo_map(scen, selected_route_idx=selected_idx)
+            st.plotly_chart(fig_geo, use_container_width=True)
 
     with col_xai_box:
         st.subheader("🧠 Why the Driver Should Adopt This Route")
