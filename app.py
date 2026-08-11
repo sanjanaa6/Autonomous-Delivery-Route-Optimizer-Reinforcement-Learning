@@ -7,13 +7,13 @@ import os
 
 # Set Page Configuration
 st.set_page_config(
-    page_title="AI Delivery Route Optimizer | Google Maps & RL",
-    page_icon="🗺️",
+    page_title="AI Delivery Route Optimizer & Driver Assistant",
+    page_icon="🚚",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom Modules
+# Custom Core Modules
 from google_maps.api_client import GoogleMapsRouteClient, CITY_PRESETS
 from rl_core.route_env import RealWorldRouteEnv
 from rl_core.dqn_agent import DQNAgent
@@ -22,7 +22,7 @@ from baselines.solvers import ShortestDistanceSolver, FastestDurationSolver, Low
 from utils.geo_visualization import render_plotly_geo_map, render_pydeck_route_map, plot_subreward_breakdown
 from utils.metrics import run_route_benchmarks
 
-# Glassmorphism Styling
+# Modern Styling
 st.markdown("""
 <style>
     .stApp {
@@ -30,42 +30,63 @@ st.markdown("""
         color: #F8FAFC;
     }
     
-    .xai-card {
-        background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9));
-        border: 1px solid rgba(56, 189, 248, 0.3);
-        border-radius: 12px;
-        padding: 20px;
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
-        margin-bottom: 20px;
+    .driver-recommend-card {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(15, 23, 42, 0.95));
+        border: 2px solid #10B981;
+        border-radius: 14px;
+        padding: 24px;
+        box-shadow: 0 10px 40px rgba(16, 185, 129, 0.25);
+        margin-bottom: 24px;
     }
     
-    .xai-headline {
-        font-size: 1.3rem;
-        font-weight: 700;
-        color: #38BDF8;
+    .recommend-badge {
+        background-color: #10B981;
+        color: #064E3B;
+        font-weight: 800;
+        font-size: 0.9rem;
+        padding: 6px 14px;
+        border-radius: 20px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        display: inline-block;
+        margin-bottom: 12px;
+    }
+    
+    .recommend-title {
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: #F8FAFC;
         margin-bottom: 8px;
     }
     
-    .xai-body {
-        font-size: 1.05rem;
-        color: #E2E8F0;
-        line-height: 1.6;
+    .metric-value-lg {
+        font-size: 2.0rem;
+        font-weight: 800;
+        color: #38BDF8;
     }
     
+    .xai-card {
+        background: rgba(30, 41, 59, 0.7);
+        border: 1px solid rgba(56, 189, 248, 0.3);
+        border-radius: 12px;
+        padding: 18px;
+        margin-top: 14px;
+    }
+
     .route-card {
         background: rgba(30, 41, 59, 0.6);
         border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 10px;
-        padding: 14px;
-        margin-bottom: 10px;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 12px;
     }
     
     .route-card-selected {
         background: rgba(16, 185, 129, 0.15);
         border: 2px solid #10B981;
-        border-radius: 10px;
-        padding: 14px;
-        margin-bottom: 10px;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 12px;
     }
     
     #MainMenu {visibility: hidden;}
@@ -81,11 +102,21 @@ if 'gmaps_key' not in st.session_state:
 if 'gmaps_client' not in st.session_state:
     st.session_state.gmaps_client = GoogleMapsRouteClient(st.session_state.gmaps_key)
 
-if 'active_preset' not in st.session_state:
-    st.session_state.active_preset = "New York, NY"
+if 'source_input' not in st.session_state:
+    st.session_state.source_input = "Times Square, New York, NY"
+
+if 'dest_input' not in st.session_state:
+    st.session_state.dest_input = "Financial District, New York, NY"
+
+if 'vehicle_type' not in st.session_state:
+    st.session_state.vehicle_type = "Delivery Van"
 
 if 'route_scenario' not in st.session_state:
-    st.session_state.route_scenario = st.session_state.gmaps_client.fetch_routes("New York, NY")
+    st.session_state.route_scenario = st.session_state.gmaps_client.fetch_routes(
+        st.session_state.source_input,
+        st.session_state.dest_input,
+        st.session_state.vehicle_type
+    )
 
 if 'route_env' not in st.session_state:
     st.session_state.route_env = RealWorldRouteEnv(st.session_state.route_scenario)
@@ -94,144 +125,208 @@ if 'dqn_agent' not in st.session_state:
     obs_dim = st.session_state.route_env.observation_space.shape[0]
     action_dim = st.session_state.route_env.action_space.n
     st.session_state.dqn_agent = DQNAgent(obs_dim, action_dim)
-    # Quick pre-train on active scenario so agent is immediately smart
     train_dqn_route_agent(st.session_state.route_env, num_episodes=60)
 
-if 'train_history' not in st.session_state:
-    st.session_state.train_history = None
+if 'user_selected_route_override' not in st.session_state:
+    st.session_state.user_selected_route_override = None
 
 
 # ==========================================
-# SIDEBAR CONTROLS
+# SIDEBAR SETTINGS
 # ==========================================
-st.sidebar.title("🗺️ Google Maps & RL Setup")
+st.sidebar.title("⚙️ System Configurations")
+
+st.sidebar.subheader("🔑 Google Maps API Key")
+api_key_field = st.sidebar.text_input("API Key (Optional)", value=st.session_state.gmaps_key, type="password", help="Enter your live Google Maps Platform API key to fetch real-world traffic & directions.")
+if api_key_field != st.session_state.gmaps_key:
+    st.session_state.gmaps_key = api_key_field
+    st.session_state.gmaps_client = GoogleMapsRouteClient(api_key_field)
+    st.sidebar.success("Updated Google Maps Client!")
+
 st.sidebar.markdown("---")
+st.sidebar.subheader("🏙️ Quick Location Presets")
+preset_choice = st.sidebar.selectbox("Select Preset City Scenario:", list(CITY_PRESETS.keys()))
 
-api_key_input = st.sidebar.text_input("Google Maps API Key (Optional)", value=st.session_state.gmaps_key, type="password")
-if api_key_input != st.session_state.gmaps_key:
-    st.session_state.gmaps_key = api_key_input
-    st.session_state.gmaps_client = GoogleMapsRouteClient(api_key_input)
-    st.sidebar.success("Google Maps API Client Updated!")
-
-st.sidebar.subheader("📍 Delivery Location Presets")
-city_choice = st.sidebar.selectbox("Select Real-World City Scenario:", list(CITY_PRESETS.keys()), index=0)
-
-use_custom_addr = st.sidebar.checkbox("Use Custom Address Inputs", value=False)
-custom_orig = ""
-custom_dest = ""
-
-if use_custom_addr:
-    custom_orig = st.sidebar.text_input("Origin Address", "Times Square, New York, NY")
-    custom_dest = st.sidebar.text_input("Destination Address", "Wall Street, New York, NY")
-
-if st.sidebar.button("🔄 Fetch Real Routes & Update Environment", use_container_width=True):
-    st.session_state.active_preset = city_choice
-    scen = st.session_state.gmaps_client.fetch_routes(
-        city_preset_name=city_choice,
-        origin_input=custom_orig,
-        dest_input=custom_dest
-    )
+if st.sidebar.button("Apply Preset Location", use_container_width=True):
+    p_data = CITY_PRESETS[preset_choice]
+    st.session_state.source_input = p_data["origin_name"]
+    st.session_state.dest_input = p_data["dest_name"]
+    scen = st.session_state.gmaps_client.fetch_routes(st.session_state.source_input, st.session_state.dest_input, st.session_state.vehicle_type)
     st.session_state.route_scenario = scen
     st.session_state.route_env.set_scenario(scen)
-    # Re-train agent quickly for new scenario
+    st.session_state.user_selected_route_override = None
     train_dqn_route_agent(st.session_state.route_env, num_episodes=60)
-    st.success("New Route Candidates Loaded!")
+    st.rerun()
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("⚙️ Operational Constraints")
-priority_input = st.sidebar.select_slider("Delivery Urgency Priority", options=[1, 2, 3], value=2, format_func=lambda x: {1: "🔵 Low Priority", 2: "🟠 Medium Priority", 3: "🔴 High Urgency"}[x])
-toll_budget_input = st.sidebar.slider("Max Toll Budget ($ / INR)", min_value=0.0, max_value=20.0, value=10.0, step=1.0)
-
-st.session_state.route_env.priority = priority_input
-st.session_state.route_env.max_toll_budget = toll_budget_input
-
-
-# ==========================================
-# MAIN APPLICATION INTERFACE
-# ==========================================
-st.title("🤖 AI Autonomous Delivery Route Optimization")
-st.markdown(
-    "Powered by **Reinforcement Learning (Deep Q-Network - DQN)**, **Google Maps Platform APIs**, and an **Explainable AI (XAI)** transparent reasoning engine."
+st.sidebar.info(
+    "💡 **Real API Key Integration**: If a Google Maps API Key is provided, the app queries live Google Maps Directions & Traffic APIs in real-time. "
+    "Without a key, it uses a dynamic realistic route engine."
 )
+
+
+# ==========================================
+# MAIN PAGE ROUTE DISCOVERY & INPUTS
+# ==========================================
+st.title("🚚 AI Delivery Route Optimizer & Driver Assistant")
+st.markdown("Enter Source & Destination locations below to discover candidate routes and obtain the **AI Recommended Route for Delivery Executive**.")
+
 st.markdown("---")
 
+# Main Control Console Box
+st.markdown("### 📍 Route Discovery & Delivery Profile Console")
+
+c1, c2, c3 = st.columns([2, 2, 1.5])
+with c1:
+    src_val = st.text_input("🟢 Source / Departure Address", value=st.session_state.source_input, key="src_field")
+with c2:
+    dst_val = st.text_input("🔴 Destination / Delivery Address", value=st.session_state.dest_input, key="dst_field")
+with c3:
+    vehicle_val = st.selectbox("🛵 Vehicle Type", ["Delivery Van", "Motorbike", "Cargo Truck"], index=0)
+
+c4, c5, c6, c7 = st.columns(4)
+with c4:
+    priority_val = st.select_slider("⚡ Delivery Urgency", options=[1, 2, 3], value=2, format_func=lambda x: {1: "🔵 Standard", 2: "🟠 Express", 3: "🔴 Rush Hour Emergency"}[x])
+with c5:
+    payload_val = st.number_input("📦 Package Weight (kg)", min_value=1.0, max_value=200.0, value=25.0, step=5.0)
+with c6:
+    toll_budget_val = st.slider("💵 Max Toll Budget ($)", min_value=0.0, max_value=25.0, value=10.0, step=1.0)
+with c7:
+    st.write("") # Spacer
+    st.write("")
+    discover_btn = st.button("🔍 Discover & Optimize Route", type="primary", use_container_width=True)
+
+if discover_btn:
+    st.session_state.source_input = src_val
+    st.session_state.dest_input = dst_val
+    st.session_state.vehicle_type = vehicle_val
+    st.session_state.route_env.priority = priority_val
+    st.session_state.route_env.max_toll_budget = toll_budget_val
+    
+    with st.spinner("Fetching live routes and running Deep Q-Network optimization..."):
+        scen = st.session_state.gmaps_client.fetch_routes(src_val, dst_val, vehicle_val)
+        st.session_state.route_scenario = scen
+        st.session_state.route_env.set_scenario(scen, priority=priority_val, toll_budget=toll_budget_val)
+        st.session_state.user_selected_route_override = None
+        train_dqn_route_agent(st.session_state.route_env, num_episodes=60)
+    st.success("Routes Discovered & Optimized Successfully!")
+
+
+# ==========================================
+# EVALUATE AI ROUTE SELECTION
+# ==========================================
+scen = st.session_state.route_scenario
+routes = scen.get("routes", [])
+
+eval_res = evaluate_route_policy(st.session_state.route_env, st.session_state.dqn_agent, solver_type="dqn")
+
+# Allow manual override if user clicks "Adopt Route" card button
+selected_idx = st.session_state.user_selected_route_override if st.session_state.user_selected_route_override is not None else eval_res["selected_route_idx"]
+chosen_route = routes[selected_idx] if selected_idx < len(routes) else routes[0]
+xai_info = eval_res["explanation"]
+breakdown = eval_res["all_breakdowns"].get(selected_idx, {})
+
+
+# ==========================================
+# HERO DRIVER RECOMMENDATION BANNER
+# ==========================================
+st.markdown("---")
+
+st.markdown(f"""
+<div class="driver-recommend-card">
+    <div class="recommend-badge">RECOMMENDED ROUTE FOR DELIVERY EXECUTIVE</div>
+    <div class="recommend-title">🚚 Adopt {chosen_route['name']}</div>
+    <p style="font-size:1.1rem; color:#CBD5E1;">
+        Optimal route determined for <b>{st.session_state.source_input}</b> ➡️ <b>{st.session_state.dest_input}</b> 
+        under current traffic congestion & delivery parameters.
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
+with col_m1:
+    st.metric("Estimated Time", f"{chosen_route['duration_min']:.1f} mins")
+with col_m2:
+    st.metric("Travel Distance", f"{chosen_route['distance_km']:.1f} km")
+with col_m3:
+    st.metric("Traffic Congestion", f"{chosen_route['traffic_factor']:.2f}x")
+with col_m4:
+    st.metric("Toll Charges", f"${chosen_route['toll_cost']:.2f}")
+with col_m5:
+    st.metric("Efficiency Score", f"{eval_res['all_rewards'].get(selected_idx, 0.0):.1f}")
+
+
+# ==========================================
+# TABS INTERFACE
+# ==========================================
 tab1, tab2, tab3, tab4 = st.tabs([
-    "🗺️ AI Route Optimizer & XAI", 
-    "📊 Baseline Algorithm Benchmarking", 
-    "🏋️ DQN Model Training Studio", 
-    "📄 Abstract & System Architecture"
+    "🗺️ Interactive Route Map & Driver XAI", 
+    "📊 Algorithm Benchmark Comparison", 
+    "🏋️ DQN Agent Training Studio", 
+    "📄 System Abstract & Specifications"
 ])
 
 
 # ----------------------------------------------------
-# TAB 1: AI ROUTE OPTIMIZER & XAI
+# TAB 1: ROUTE MAP & DRIVER XAI
 # ----------------------------------------------------
 with tab1:
-    scen = st.session_state.route_scenario
-    routes = scen.get("routes", [])
+    col_map_box, col_xai_box = st.columns([1.6, 1])
 
-    st.subheader(f"📍 Origin: `{scen.get('origin_name', 'Start')}` ➡️ Destination: `{scen.get('dest_name', 'End')}`")
-
-    # Evaluate active policy
-    eval_res = evaluate_route_policy(st.session_state.route_env, st.session_state.dqn_agent, solver_type="dqn")
-    selected_idx = eval_res["selected_route_idx"]
-    xai_info = eval_res["explanation"]
-    breakdown = eval_res["all_breakdowns"].get(selected_idx, {})
-
-    col_map_view, col_xai_view = st.columns([1.6, 1])
-
-    with col_map_view:
-        st.subheader("🗺️ Real-World Interactive Route Map")
+    with col_map_box:
+        st.subheader("🗺️ Real-World Map View (Candidate Corridors)")
         fig_geo = render_plotly_geo_map(scen, selected_route_idx=selected_idx)
         st.plotly_chart(fig_geo, use_container_width=True)
 
-    with col_xai_view:
-        st.subheader("🧠 Explainable AI (XAI) Transparent Reasoning")
+    with col_xai_box:
+        st.subheader("🧠 Why the Driver Should Adopt This Route")
         
         st.markdown(f"""
         <div class="xai-card">
-            <div class="xai-headline">💡 {xai_info['headline']}</div>
-            <div class="xai-body">{xai_info['explanation']}</div>
+            <div style="font-weight:700; color:#38BDF8; font-size:1.1rem; margin-bottom:6px;">💡 {xai_info['headline']}</div>
+            <div style="color:#E2E8F0; font-size:0.95rem; line-height:1.5;">{xai_info['explanation']}</div>
         </div>
         """, unsafe_allow_html=True)
 
-        st.markdown("#### ⚖️ Key Route Trade-Off Comparisons:")
+        st.markdown("#### ⚖️ Route Trade-Off Breakdown:")
         for pt in xai_info["tradeoff_points"]:
             st.markdown(f"- {pt}")
 
-        fig_breakdown = plot_subreward_breakdown(breakdown, title="RL Reward Sub-Score Breakdown")
+        fig_breakdown = plot_subreward_breakdown(breakdown, title="RL Multi-Objective Reward Weights")
         st.plotly_chart(fig_breakdown, use_container_width=True)
 
     st.markdown("---")
-    st.subheader("📋 Candidate Routes Evaluation Matrix")
+    st.subheader("📋 Candidate Routes Matrix & Driver Adoption Toggle")
 
-    cols = st.columns(len(routes))
+    card_cols = st.columns(len(routes))
     for idx, r in enumerate(routes):
         is_chosen = (idx == selected_idx)
-        card_class = "route-card-selected" if is_chosen else "route-card"
-        
-        with cols[idx]:
+        card_style = "route-card-selected" if is_chosen else "route-card"
+
+        with card_cols[idx]:
             st.markdown(f"""
-            <div class="{card_class}">
-                <h4>{'⭐ ' if is_chosen else ''}{r['name']}</h4>
+            <div class="{card_style}">
+                <h4>{'⭐ ADOPTED ' if is_chosen else ''}{r['name']}</h4>
                 <p><b>Distance:</b> {r['distance_km']} km</p>
-                <p><b>Duration:</b> {r['duration_min']} mins</p>
-                <p><b>Traffic Congestion:</b> {r['traffic_factor']:.2f}x</p>
-                <p><b>Toll Cost:</b> ${r['toll_cost']:.2f}</p>
-                <p><b>RL Reward Score:</b> <span style="color:{'#10B981' if is_chosen else '#38BDF8'}; font-weight:bold;">{eval_res['all_rewards'].get(idx, 0.0):.1f}</span></p>
+                <p><b>Travel Time:</b> {r['duration_min']} mins</p>
+                <p><b>Traffic Factor:</b> {r['traffic_factor']:.2f}x</p>
+                <p><b>Tolls:</b> ${r['toll_cost']:.2f}</p>
+                <p><b>Reward Score:</b> <span style="color:{'#10B981' if is_chosen else '#38BDF8'}; font-weight:bold;">{eval_res['all_rewards'].get(idx, 0.0):.1f}</span></p>
             </div>
             """, unsafe_allow_html=True)
+            
+            if not is_chosen:
+                if st.button(f"Select {r['name']}", key=f"btn_adopt_{idx}", use_container_width=True):
+                    st.session_state.user_selected_route_override = idx
+                    st.rerun()
 
 
 # ----------------------------------------------------
-# TAB 2: BASELINE ALGORITHM BENCHMARKING
+# TAB 2: ALGORITHM BENCHMARK
 # ----------------------------------------------------
 with tab2:
-    st.header("📊 Benchmark Evaluation: DQN vs Classical Route Solvers")
-    st.markdown(
-        "Comparing the **DQN Agent** against traditional route selection heuristics "
-        "(Shortest Distance, Fastest Duration, Lowest Toll Cost) on the active real-world route choices."
-    )
+    st.header("📊 Benchmark: Deep Q-Network vs Traditional Solvers")
+    st.markdown("Empirical comparison of the **DQN Agent** against classical route selection heuristics on the active Google Maps options.")
 
     solvers = {
         "shortest": ShortestDistanceSolver(),
@@ -247,32 +342,21 @@ with tab2:
 
     st.dataframe(df_bench, use_container_width=True, hide_index=True)
 
-    st.markdown("""
-    > [!TIP]
-    > **Why Deep Q-Network Outperforms Fixed Baseline Algorithms**:
-    > - **Shortest Distance Solver** blindly chooses physical shortest distance, often steering delivery vehicles into heavy urban gridlocks and congestion bottlenecks.
-    > - **Fastest Duration Solver** ignores toll costs and delivery urgency priorities, accumulating high operational expenses.
-    > - **Lowest Cost Solver** avoids tolls entirely, resulting in massive travel time delays for high-priority packages.
-    > - **Deep Q-Network (DQN)** dynamically optimizes across all competing factors simultaneously!
-    """)
-
 
 # ----------------------------------------------------
-# TAB 3: DQN MODEL TRAINING STUDIO
+# TAB 3: MODEL TRAINING STUDIO
 # ----------------------------------------------------
 with tab3:
-    st.header("🏋️ DQN Agent Training Studio")
-    st.markdown("Train the Deep Q-Network policy on dynamic multi-scenario traffic fluctuations.")
-
+    st.header("🏋️ Deep Q-Network Training Studio")
     col_t1, col_t2 = st.columns([1, 1.5])
 
     with col_t1:
-        episodes_val = st.number_input("Training Episodes", value=150, min_value=20, max_value=1000, step=20)
-        lr_val = st.number_input("Learning Rate", value=0.001, format="%.4f")
-        gamma_val = st.slider("Discount Factor (Gamma)", 0.80, 0.99, 0.95, 0.01)
-        decay_val = st.slider("Epsilon Decay Rate", 0.90, 0.999, 0.98, 0.005)
+        eps_input = st.number_input("Episodes", value=150, min_value=20, max_value=1000, step=20)
+        lr_input = st.number_input("Learning Rate", value=0.001, format="%.4f")
+        gamma_input = st.slider("Gamma", 0.80, 0.99, 0.95, 0.01)
+        decay_input = st.slider("Epsilon Decay", 0.90, 0.999, 0.98, 0.005)
 
-        if st.button("🚀 Train DQN Policy", use_container_width=True):
+        if st.button("🚀 Train Agent", use_container_width=True):
             pbar = st.progress(0.0)
             status = st.empty()
 
@@ -281,30 +365,22 @@ with tab3:
                 status.markdown(f"**Episode {ep}/{total}** | Latest Reward: `{rew:.1f}`")
 
             t0 = time.time()
-            agent, df_hist = train_dqn_route_agent(
-                st.session_state.route_env,
-                num_episodes=episodes_val,
-                lr=lr_val,
-                gamma=gamma_val,
-                epsilon_decay=decay_val,
-                progress_callback=p_cb
-            )
+            agent, df_hist = train_dqn_route_agent(st.session_state.route_env, num_episodes=eps_input, lr=lr_input, gamma=gamma_input, epsilon_decay=decay_input, progress_callback=p_cb)
             st.session_state.dqn_agent = agent
             st.session_state.train_history = df_hist
             st.success(f"🎉 Model Trained in {time.time()-t0:.2f} seconds!")
 
     with col_t2:
         if st.session_state.train_history is not None:
-            st.subheader("📈 Training Loss & Reward Convergence")
+            st.subheader("📈 Training Convergence")
             st.line_chart(st.session_state.train_history.set_index("episode")[["reward", "loss"]])
 
 
 # ----------------------------------------------------
-# TAB 4: ABSTRACT & ARCHITECTURE
+# TAB 4: ABSTRACT & SYSTEM ARCHITECTURE
 # ----------------------------------------------------
 with tab4:
     st.header("📄 Project Abstract & System Specifications")
-    
     st.markdown("""
     ### **AI-Based Autonomous Delivery Route Optimization Using Reinforcement Learning and Google Maps API**
 
