@@ -54,6 +54,7 @@ class GoogleMapsRouteClient:
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or os.getenv("GOOGLE_MAPS_API_KEY")
         self.gmaps = None
+        self._geocode_cache: Dict[str, Tuple[Optional[Tuple[float, float]], str]] = {}
 
         if self.api_key and HAS_GOOGLEMAPS_LIB:
             try:
@@ -128,34 +129,69 @@ class GoogleMapsRouteClient:
     def _geocode_address(self, query: str) -> Tuple[Optional[Tuple[float, float]], str]:
         """
         Accurately geocodes real-world address strings into exact GPS lat/lng coordinates and resolved location names.
-        Includes automatic spelling typo corrections (e.g. 'Banglore' -> 'Bangalore').
+        Includes automatic spelling typo corrections and in-memory caching.
         """
         if not query or not query.strip():
             return None, query
 
         # Common typo corrections
-        clean_q = query.replace('Banglore', 'Bangalore').replace('BLR', 'Bangalore').replace('Delhy', 'Delhi')
+        clean_q = query.replace('Banglore', 'Bangalore').replace('BLR', 'Bangalore').replace('Delhy', 'Delhi').strip()
+        cache_key = clean_q.lower()
+
+        # Check Cache
+        if cache_key in self._geocode_cache:
+            return self._geocode_cache[cache_key]
+
+        # Check Preset Matches
+        for p_name, p_data in CITY_PRESETS.items():
+            if p_data["origin_name"].lower() == cache_key or p_name.lower() == cache_key:
+                res = (p_data["origin_coords"], p_data["origin_name"])
+                self._geocode_cache[cache_key] = res
+                return res
+            if p_data["dest_name"].lower() == cache_key:
+                res = (p_data["dest_coords"], p_data["dest_name"])
+                self._geocode_cache[cache_key] = res
+                return res
+
+        # Try Google Maps Geocoding if API key is present
+        if self.gmaps:
+            try:
+                g_res = self.gmaps.geocode(clean_q)
+                if g_res:
+                    loc = g_res[0]['geometry']['location']
+                    formatted_addr = g_res[0].get('formatted_address', clean_q)
+                    res = ((float(loc['lat']), float(loc['lng'])), formatted_addr)
+                    self._geocode_cache[cache_key] = res
+                    return res
+            except Exception as e:
+                print(f"Google Maps geocoding error: {e}")
 
         # Try Geopy Nominatim
         if HAS_GEOPY:
             try:
-                location = geolocator.geocode(clean_q, timeout=6)
+                location = geolocator.geocode(clean_q, timeout=8)
                 if location:
-                    return (float(location.latitude), float(location.longitude)), location.address
+                    res = ((float(location.latitude), float(location.longitude)), location.address)
+                    self._geocode_cache[cache_key] = res
+                    return res
             except Exception as e:
                 print(f"Geopy error for '{clean_q}': {e}")
 
-        # Try Nominatim REST endpoint directly
-        try:
-            url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(clean_q)}&format=json&limit=1"
-            headers = {"User-Agent": "delivery_route_optimizer_app_v4"}
-            res = requests.get(url, headers=headers, timeout=5)
-            if res.status_code == 200:
-                data = res.json()
-                if data:
-                    return (float(data[0]["lat"]), float(data[0]["lon"])), data[0].get("display_name", clean_q)
-        except Exception as e:
-            print(f"Nominatim REST error: {e}")
+        # Try Nominatim REST endpoint with retry and 10s timeout
+        url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(clean_q)}&format=json&limit=1"
+        headers = {"User-Agent": "delivery_route_optimizer_app_v5 (contact@optimizer-app.com)"}
+        for attempt in range(2):
+            try:
+                res_http = requests.get(url, headers=headers, timeout=10)
+                if res_http.status_code == 200:
+                    data = res_http.json()
+                    if data:
+                        res = ((float(data[0]["lat"]), float(data[0]["lon"])), data[0].get("display_name", clean_q))
+                        self._geocode_cache[cache_key] = res
+                        return res
+            except Exception as e:
+                if attempt == 1:
+                    print(f"Nominatim REST error after retry: {e}")
 
         return None, query
 

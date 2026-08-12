@@ -166,7 +166,7 @@ st.sidebar.markdown("---")
 st.sidebar.subheader("🏙️ Quick Location Presets")
 preset_choice = st.sidebar.selectbox("Select Preset City Scenario:", list(CITY_PRESETS.keys()))
 
-if st.sidebar.button("Apply Preset Location", use_container_width=True):
+if st.sidebar.button("Apply Preset Location", width="stretch"):
     p_data = CITY_PRESETS[preset_choice]
     st.session_state.source_input = p_data["origin_name"]
     st.session_state.dest_input = p_data["dest_name"]
@@ -212,7 +212,7 @@ with c6:
 with c7:
     st.write("")
     st.write("")
-    discover_btn = st.button("🔍 Discover & Optimize Route", type="primary", use_container_width=True)
+    discover_btn = st.button("🔍 Discover & Optimize Route", type="primary", width="stretch")
 
 if discover_btn:
     st.session_state.source_input = src_val
@@ -313,7 +313,7 @@ with tab1:
             st.pydeck_chart(deck)
         else:
             fig_geo = render_plotly_geo_map(scen, selected_route_idx=selected_idx)
-            st.plotly_chart(fig_geo, use_container_width=True)
+            st.plotly_chart(fig_geo, width="stretch")
 
     with col_xai_box:
         st.subheader("🧠 Why the Driver Should Adopt This Route")
@@ -330,7 +330,7 @@ with tab1:
             st.markdown(f"- {pt}")
 
         fig_breakdown = plot_subreward_breakdown(breakdown, title="RL Multi-Objective Reward Weights")
-        st.plotly_chart(fig_breakdown, use_container_width=True)
+        st.plotly_chart(fig_breakdown, width="stretch")
 
     st.markdown("---")
     st.subheader("📋 Candidate Routes Matrix & Driver Adoption Toggle")
@@ -353,7 +353,7 @@ with tab1:
             """, unsafe_allow_html=True)
             
             if not is_chosen:
-                if st.button(f"Select {r['name']}", key=f"btn_adopt_{idx}", use_container_width=True):
+                if st.button(f"Select {r['name']}", key=f"btn_adopt_{idx}", width="stretch"):
                     st.session_state.user_selected_route_override = idx
                     st.rerun()
 
@@ -377,7 +377,7 @@ with tab2:
         solvers_dict=solvers
     )
 
-    st.dataframe(df_bench, use_container_width=True, hide_index=True)
+    st.dataframe(df_bench, width="stretch", hide_index=True)
 
 
 # ----------------------------------------------------
@@ -393,7 +393,7 @@ with tab3:
         gamma_input = st.slider("Gamma", 0.80, 0.99, 0.95, 0.01)
         decay_input = st.slider("Epsilon Decay", 0.90, 0.999, 0.98, 0.005)
 
-        if st.button("🚀 Train Agent", use_container_width=True):
+        if st.button("🚀 Train Agent", width="stretch"):
             pbar = st.progress(0.0)
             status = st.empty()
 
