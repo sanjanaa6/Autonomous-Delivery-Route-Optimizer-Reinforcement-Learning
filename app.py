@@ -218,15 +218,15 @@ if discover_btn:
     st.session_state.source_input = src_val
     st.session_state.dest_input = dst_val
     st.session_state.vehicle_type = vehicle_val
-    st.session_state.route_env.priority = priority_val
-    st.session_state.route_env.max_toll_budget = toll_budget_val
     
     with st.spinner("Geocoding real locations & querying live driving routes..."):
         scen = st.session_state.gmaps_client.fetch_routes(src_val, dst_val, vehicle_val)
         st.session_state.route_scenario = scen
         st.session_state.route_env.set_scenario(scen, priority=priority_val, toll_budget=toll_budget_val)
         st.session_state.user_selected_route_override = None
-        train_dqn_route_agent(st.session_state.route_env, num_episodes=60)
+        agent, _ = train_dqn_route_agent(st.session_state.route_env, num_episodes=60)
+        st.session_state.dqn_agent = agent
+        st.session_state.route_env.set_scenario(scen, priority=priority_val, toll_budget=toll_budget_val)
     st.success("Real Routes Discovered & Optimized!")
 
 
