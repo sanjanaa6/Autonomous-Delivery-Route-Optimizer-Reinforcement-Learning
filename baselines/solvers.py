@@ -54,7 +54,7 @@ class FastestDurationSolver(BaselineRouteSolver):
 
 class LowestCostSolver(BaselineRouteSolver):
     """
-    Lowest Toll Cost Solver: Always selects route with zero or lowest toll cost ($).
+    Lowest Toll Cost Solver: Always selects route with zero or lowest toll cost (₹).
     """
     def __init__(self):
         super().__init__("Lowest Cost Solver")

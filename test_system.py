@@ -4,7 +4,7 @@ def run_tests():
     print("Testing GoogleMapsRouteClient...")
     from google_maps.api_client import GoogleMapsRouteClient
     client = GoogleMapsRouteClient()
-    scen = client.fetch_routes("New York, NY")
+    scen = client.fetch_routes("New York, NY", "Boston, MA")
     assert len(scen["routes"]) >= 2, "Expected at least 2 candidate routes"
     print("[OK] GoogleMapsRouteClient OK")
 

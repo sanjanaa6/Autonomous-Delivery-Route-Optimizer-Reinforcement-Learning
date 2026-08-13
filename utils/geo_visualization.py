@@ -76,7 +76,7 @@ def render_folium_route_map(scenario: Dict[str, Any], selected_route_idx: int = 
             color = "#10B981"  # Emerald Green for AI Adopted Route
             weight = 7
             opacity = 0.95
-            popup_txt = f"⭐ <b>AI ADOPTED ROUTE: {r['name']}</b><br>Distance: {r['distance_km']} km<br>Travel Time: {r['duration_min']} mins<br>Traffic Congestion: {r['traffic_factor']}x<br>Tolls: ${r['toll_cost']:.2f}"
+            popup_txt = f"⭐ <b>AI ADOPTED ROUTE: {r['name']}</b><br>Distance: {r['distance_km']} km<br>Travel Time: {r['duration_min']} mins<br>Traffic Congestion: {r['traffic_factor']}x<br>Tolls: ₹{r['toll_cost']:.2f}"
         elif idx == 1:
             color = "#F59E0B"  # Amber for Route B
             weight = 4.5
@@ -156,7 +156,7 @@ def render_plotly_geo_map(scenario: Dict[str, Any], selected_route_idx: int = 0)
             line=dict(width=width, color=color),
             name=name_str,
             hoverinfo='text',
-            text=f"{r['name']}<br>Dist: {r['distance_km']}km | Time: {r['duration_min']}min | Traffic: {r['traffic_factor']}x | Toll: ${r['toll_cost']:.2f}"
+            text=f"{r['name']}<br>Dist: {r['distance_km']}km | Time: {r['duration_min']}min | Traffic: {r['traffic_factor']}x | Toll: ₹{r['toll_cost']:.2f}"
         ))
 
     fig.add_trace(go.Scattermap(

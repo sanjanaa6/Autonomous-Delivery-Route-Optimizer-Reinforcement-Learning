@@ -59,9 +59,9 @@ class XAIRouteExplainer:
                 point_desc.append(f"has slightly higher traffic congestion ({chosen['traffic_factor']:.2f}x vs {alt_route['traffic_factor']:.2f}x)")
 
             if toll_diff > 0.5:
-                point_desc.append(f"saves ${toll_diff:.2f} in toll fees")
+                point_desc.append(f"saves ₹{toll_diff:.2f} in toll fees")
             elif toll_diff < -0.5:
-                point_desc.append(f"incurs ${abs(toll_diff):.2f} in tolls")
+                point_desc.append(f"incurs ₹{abs(toll_diff):.2f} in tolls")
 
             if dist_diff > 1.0:
                 point_desc.append(f"covers {abs(dist_diff):.1f} km extra distance")

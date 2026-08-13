@@ -119,10 +119,10 @@ if 'gmaps_client' not in st.session_state:
     st.session_state.gmaps_client = GoogleMapsRouteClient(st.session_state.gmaps_key)
 
 if 'source_input' not in st.session_state:
-    st.session_state.source_input = "Times Square, New York, NY"
+    st.session_state.source_input = "Hampi, Karnataka"
 
 if 'dest_input' not in st.session_state:
-    st.session_state.dest_input = "Financial District, New York, NY"
+    st.session_state.dest_input = "Belagavi, Karnataka"
 
 if 'vehicle_type' not in st.session_state:
     st.session_state.vehicle_type = "Delivery Van"
@@ -144,10 +144,9 @@ if 'route_env' not in st.session_state:
     st.session_state.route_env = RealWorldRouteEnv(st.session_state.route_scenario)
 
 if 'dqn_agent' not in st.session_state:
-    obs_dim = st.session_state.route_env.observation_space.shape[0]
-    action_dim = st.session_state.route_env.action_space.n
-    st.session_state.dqn_agent = DQNAgent(obs_dim, action_dim)
-    train_dqn_route_agent(st.session_state.route_env, num_episodes=60)
+    agent, df_hist = train_dqn_route_agent(st.session_state.route_env, num_episodes=60)
+    st.session_state.dqn_agent = agent
+    st.session_state.train_history = df_hist
 
 
 # ==========================================
@@ -174,7 +173,9 @@ if st.sidebar.button("Apply Preset Location", width="stretch"):
     st.session_state.route_scenario = scen
     st.session_state.route_env.set_scenario(scen)
     st.session_state.user_selected_route_override = None
-    train_dqn_route_agent(st.session_state.route_env, num_episodes=60)
+    agent, df_hist = train_dqn_route_agent(st.session_state.route_env, num_episodes=60)
+    st.session_state.dqn_agent = agent
+    st.session_state.train_history = df_hist
     st.rerun()
 
 st.sidebar.markdown("---")
@@ -187,32 +188,31 @@ st.sidebar.info(
 # ==========================================
 # MAIN PAGE ROUTE DISCOVERY & INPUTS
 # ==========================================
-st.title("🚚 AI Delivery Route Optimizer & Driver Assistant")
-st.markdown("Enter Source & Destination locations below to discover accurate real candidate routes and obtain the **AI Recommended Route for Delivery Executive**.")
+st.title("🚚 AI Optimal Route Optimizer & Navigation Assistant")
+st.markdown("Enter Source & Destination locations below to discover accurate real candidate routes and obtain the **AI Recommended Best Route**.")
 
 st.markdown("---")
 
-st.markdown("### 📍 Real-World Route Discovery Console")
+with st.form("route_discovery_form"):
+    st.markdown("### 📍 Real-World Route Discovery Console")
 
-c1, c2, c3 = st.columns([2.2, 2.2, 1.5])
-with c1:
-    src_val = st.text_input("🟢 Source / Departure Address", value=st.session_state.source_input, key="src_field")
-with c2:
-    dst_val = st.text_input("🔴 Destination / Delivery Address", value=st.session_state.dest_input, key="dst_field")
-with c3:
-    vehicle_val = st.selectbox("🛵 Vehicle Type", ["Delivery Van", "Motorbike", "Cargo Truck"], index=0)
+    c1, c2, c3 = st.columns([2.2, 2.2, 1.5])
+    with c1:
+        src_val = st.text_input("🟢 Source / Departure Address", value=st.session_state.source_input)
+    with c2:
+        dst_val = st.text_input("🔴 Destination / Delivery Address", value=st.session_state.dest_input)
+    with c3:
+        vehicle_val = st.selectbox("🛵 Vehicle Type", ["Delivery Van", "Motorbike", "Cargo Truck"], index=0)
 
-c4, c5, c6, c7 = st.columns(4)
-with c4:
-    priority_val = st.select_slider("⚡ Delivery Urgency", options=[1, 2, 3], value=2, format_func=lambda x: {1: "🔵 Standard", 2: "🟠 Express", 3: "🔴 Rush Hour Emergency"}[x])
-with c5:
-    payload_val = st.number_input("📦 Package Weight (kg)", min_value=1.0, max_value=200.0, value=25.0, step=5.0)
-with c6:
-    toll_budget_val = st.slider("💵 Max Toll Budget ($)", min_value=0.0, max_value=25.0, value=10.0, step=1.0)
-with c7:
-    st.write("")
-    st.write("")
-    discover_btn = st.button("🔍 Discover & Optimize Route", type="primary", width="stretch")
+    c4, c5, c6 = st.columns([2, 2, 1.5])
+    with c4:
+        priority_val = st.select_slider("⚡ Route Priority / Urgency", options=[1, 2, 3], value=2, format_func=lambda x: {1: "🔵 Standard", 2: "🟠 Express", 3: "🔴 Emergency"}[x])
+    with c5:
+        toll_budget_val = st.slider("💵 Max Toll Budget (₹)", min_value=0.0, max_value=300.0, value=100.0, step=10.0)
+    with c6:
+        st.write("")
+        st.write("")
+        discover_btn = st.form_submit_button("🔍 Discover & Optimize Route", type="primary", width="stretch")
 
 if discover_btn:
     st.session_state.source_input = src_val
@@ -228,6 +228,7 @@ if discover_btn:
         st.session_state.dqn_agent = agent
         st.session_state.route_env.set_scenario(scen, priority=priority_val, toll_budget=toll_budget_val)
     st.success("Real Routes Discovered & Optimized!")
+    st.rerun()
 
 
 # ==========================================
@@ -277,7 +278,7 @@ with col_m2:
 with col_m3:
     st.metric("Traffic Congestion", f"{chosen_route['traffic_factor']:.2f}x")
 with col_m4:
-    st.metric("Toll Charges", f"${chosen_route['toll_cost']:.2f}")
+    st.metric("Toll Charges", f"₹{chosen_route['toll_cost']:.2f}")
 with col_m5:
     st.metric("Efficiency Score", f"{eval_res['all_rewards'].get(selected_idx, 0.0):.1f}")
 
@@ -347,7 +348,7 @@ with tab1:
                 <p><b>Distance:</b> {r['distance_km']} km</p>
                 <p><b>Travel Time:</b> {r['duration_min']} mins</p>
                 <p><b>Traffic Factor:</b> {r['traffic_factor']:.2f}x</p>
-                <p><b>Tolls:</b> ${r['toll_cost']:.2f}</p>
+                <p><b>Tolls:</b> ₹{r['toll_cost']:.2f}</p>
                 <p><b>Reward Score:</b> <span style="color:{'#10B981' if is_chosen else '#38BDF8'}; font-weight:bold;">{eval_res['all_rewards'].get(idx, 0.0):.1f}</span></p>
             </div>
             """, unsafe_allow_html=True)

@@ -24,7 +24,7 @@ def run_route_benchmarks(
                 "Distance (km)": r["distance_km"],
                 "Duration (min)": r["duration_min"],
                 "Traffic Factor": f"{r['traffic_factor']:.2f}x",
-                "Toll Cost ($)": f"${r['toll_cost']:.2f}",
+                "Toll Cost (₹)": f"₹{r['toll_cost']:.2f}",
                 "Efficiency Reward": eval_res["total_reward"]
             })
 
@@ -39,7 +39,7 @@ def run_route_benchmarks(
                     "Distance (km)": r["distance_km"],
                     "Duration (min)": r["duration_min"],
                     "Traffic Factor": f"{r['traffic_factor']:.2f}x",
-                    "Toll Cost ($)": f"${r['toll_cost']:.2f}",
+                    "Toll Cost (₹)": f"₹{r['toll_cost']:.2f}",
                     "Efficiency Reward": eval_res["total_reward"]
                 })
 

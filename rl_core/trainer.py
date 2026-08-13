@@ -39,7 +39,7 @@ def train_dqn_route_agent(
     for ep in range(1, num_episodes + 1):
         # Randomize priority & toll budget per episode for robust multi-task policy
         prio = random.choice([1, 2, 3])
-        budget = random.choice([0.0, 5.0, 10.0, 15.0])
+        budget = random.choice([0.0, 50.0, 100.0, 150.0, 200.0])
         obs, info = env.set_scenario(env.scenario, priority=prio, toll_budget=budget)
 
         action = agent.select_action(obs, eval_mode=False)

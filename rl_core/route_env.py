@@ -32,12 +32,12 @@ class RealWorldRouteEnv(gym.Env):
         )
 
         self.priority = 2  # Default Medium (1=Low, 2=Med, 3=High)
-        self.max_toll_budget = 10.0  # Max tolerable toll
+        self.max_toll_budget = 100.0  # Max tolerable toll in INR (₹)
         self.current_step = 0
 
         self.reset()
 
-    def set_scenario(self, route_scenario: Dict[str, Any], priority: int = 2, toll_budget: float = 10.0):
+    def set_scenario(self, route_scenario: Dict[str, Any], priority: int = 2, toll_budget: float = 100.0):
         self.scenario = copy.deepcopy(route_scenario)
         self.routes = self.scenario.get("routes", [])
         self.num_routes = min(len(self.routes), self.max_routes)
@@ -62,7 +62,7 @@ class RealWorldRouteEnv(gym.Env):
             float(dest_coords[0]) / 90.0,
             float(dest_coords[1]) / 180.0,
             float(self.priority) / 3.0,
-            float(self.max_toll_budget) / 20.0
+            float(self.max_toll_budget) / 300.0
         ]
 
         for i in range(self.max_routes):
@@ -71,7 +71,7 @@ class RealWorldRouteEnv(gym.Env):
                 dist_norm = float(r["distance_km"]) / 50.0
                 time_norm = float(r["duration_min"]) / 90.0
                 traffic_norm = float(r["traffic_factor"]) / 3.0
-                toll_norm = float(r["toll_cost"]) / 20.0
+                toll_norm = float(r["toll_cost"]) / 300.0
                 obs.extend([dist_norm, time_norm, traffic_norm, toll_norm])
             else:
                 obs.extend([0.0, 0.0, 0.0, 0.0])
@@ -102,11 +102,11 @@ class RealWorldRouteEnv(gym.Env):
         time_penalty = duration * 0.5 * (1.0 + (self.priority * 0.25))  # High priority punishes delays more
         dist_penalty = dist * 0.3
         traffic_penalty = (traffic_tf - 1.0) * 15.0
-        toll_penalty = toll * 0.8
+        toll_penalty = toll * 0.06
 
         budget_exceeded_penalty = 0.0
         if toll > self.max_toll_budget:
-            budget_exceeded_penalty = (toll - self.max_toll_budget) * 2.0
+            budget_exceeded_penalty = (toll - self.max_toll_budget) * 0.15
 
         total_reward = base_score - time_penalty - dist_penalty - traffic_penalty - toll_penalty - budget_exceeded_penalty
 
