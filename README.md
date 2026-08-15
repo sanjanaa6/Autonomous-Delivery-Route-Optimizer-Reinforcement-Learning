@@ -13,9 +13,11 @@ Unlike traditional route selection systems that depend solely on static shortest
    - Includes an out-of-the-box fallback generator for pre-configured real-world cities (New York, San Francisco, London, Bengaluru) so the application works seamlessly without an API key.
 2. **Deep Q-Network (DQN) Routing Environment (`rl_core/route_env.py`)**:
    - `RealWorldRouteEnv(gymnasium.Env)` models multi-objective trade-offs between travel duration, distance, traffic bottlenecks, toll costs, and delivery urgency priorities.
+   - 
 3. **Explainable AI (XAI) Reasoning Engine (`rl_core/explainability.py`)**:
    - Calculates sub-reward component breakdowns and produces natural-language explanations (e.g. *"Route A was selected because it avoids 18 mins of heavy traffic congestion and saves $4.50 in tolls, despite being 1.4 km longer than Route B"*).
-4. **Interactive Streamlit Web Dashboard (`app.py`)**:
+   - 
+4. **Interactive Streamlit Web in (`app.py`)**:
    - Real-world map visualizer (PyDeck / Plotly).
    - Candidate route comparison matrix.
    - XAI transparent route reasoning box.
@@ -48,10 +50,9 @@ c:\Files\Rein_learn/
     ├── geo_visualization.py           # PyDeck & Plotly geographic route maps
     └── metrics.py                     # Benchmark aggregator
 ```
-
 ---
 
-## 🚀 Running the Application
+## Running the Application
 
 ### 1. Install Dependencies
 ```bash
